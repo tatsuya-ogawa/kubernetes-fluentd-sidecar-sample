@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fluentd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fluentd
+  template:
+    metadata:
+      labels:
+        app: fluentd
+    spec:
+      volumes:
+      - name: log-volume
+        emptyDir: {}
+      - name: fluentd-config
+        configMap:
+          name: fluentd-config
+      serviceAccountName: fluentd
+      containers:     
+      - name: app
+        image: busybox
+        command:
+        - sh
+        - -c
+        - "while true; do date >> /var/log/app/test.log ;sleep 1;done"
+        volumeMounts:
+        - mountPath: /var/log/app
+          name: log-volume
+      - name: fluentd
+        image: togawa83/fluentd_kubernetes_metadata
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /var/log/app
+          name: log-volume        
+        - name: fluentd-config
+          mountPath: /fluentd/etc/
+        env:
+        - name: KUBE_CONTAINER_NAME
+          value: test
+        - name: CONTAINER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: KUBE_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: KUBE_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName

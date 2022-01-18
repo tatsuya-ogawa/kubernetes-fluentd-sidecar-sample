@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  labels:
+    app.kubernetes.io/name: fluentbit
+data:
+  fluent.conf: |
+    <source>
+      @type tail
+      @id in_tail_container_logs
+      path "/var/log/app/*.log"
+      tag "kubernetes.*"
+      <parse>
+      @type none
+      </parse>
+    </source>
+    <filter kubernetes.**>
+      @type record_transformer
+      enable_ruby true
+      auto_typecast true
+      <record>
+        kubernetes ${ {"namespace_name" => "#{ENV['KUBE_POD_NAMESPACE']}" ,"pod_name" => "#{ENV['KUBE_POD_NAME']}", "container_name" => "#{ENV['KUBE_CONTAINER_NAME']}"} }
+        docker ${ {"container_id" => "#{ENV['CONTAINER_ID']}"} }                
+      </record>
+    </filter>
+    <filter kubernetes.**>
+      @type kubernetes_metadata
+    </filter>
+    <match kubernetes.**>
+      @type stdout
+    </match>
+  parsers.conf: |
